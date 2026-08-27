@@ -6,6 +6,7 @@
 <title>Bitácora de Lavado de Rejas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     --bg: #1c1f24;
@@ -103,7 +104,7 @@
     font-size:15px;
     padding:10px 10px;
     border-radius:8px;
-    width: 85%;
+    width:100%;
   }
   input[type=text].unidad{
     text-transform:uppercase;
@@ -238,6 +239,41 @@
   .val.clean{color:var(--green);}
   .val.dirty{color:var(--red);}
 
+  .btn-img{
+    width:100%;
+    background:var(--panel-2);
+    color:var(--amber);
+    border:1px solid var(--amber-dim);
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:11px;
+    border-radius:8px;
+    cursor:pointer;
+    margin-bottom:14px;
+  }
+  .btn-img:active{transform:translateY(1px);}
+  .btn-img:disabled{opacity:0.6; cursor:default;}
+
+  #imgCapture{
+    background:var(--bg);
+    padding:16px;
+    width:680px;
+  }
+  #imgCapture .cap-title{
+    font-family:'Barlow Condensed',sans-serif;
+    text-transform:uppercase;
+    font-size:20px; font-weight:700;
+    color:var(--amber);
+    margin:0 0 4px;
+  }
+  #imgCapture .cap-sub{
+    color:var(--muted); font-size:12px; margin:0 0 14px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+
   .empty{
     text-align:center; color:var(--muted); font-size:13.5px;
     padding:30px 10px;
@@ -303,7 +339,7 @@
         <input type="number" id="limpias" min="0" inputmode="numeric" placeholder="0">
       </div>
       <div class="field">
-        <label for="sucias">Rejas sucias</label>
+        <label for="sucias">Rejas sucias (opcional)</label>
         <input type="number" id="sucias" min="0" inputmode="numeric" placeholder="0">
       </div>
 
@@ -324,6 +360,7 @@
       <h2 class="card-title" style="margin:0;">Registros</h2>
       <span class="count-pill" id="countPill">0 registros</span>
     </div>
+    <button class="btn-img" id="btnImg">Guardar registros como imagen</button>
     <div id="log"></div>
   </section>
 </main>
@@ -434,6 +471,74 @@
     return d.innerHTML;
   }
 
+  document.getElementById('btnImg').addEventListener('click', async () => {
+    const entries = loadEntries();
+    const btn = document.getElementById('btnImg');
+
+    if(entries.length === 0){
+      els.err.textContent = 'No hay registros para guardar como imagen.';
+      return;
+    }
+    els.err.textContent = '';
+
+    const sorted = [...entries].sort((a,b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
+
+    // Contenedor temporal fuera de pantalla con todos los registros, para capturarlo como imagen
+    const capture = document.createElement('div');
+    capture.id = 'imgCapture';
+    capture.style.position = 'fixed';
+    capture.style.left = '-9999px';
+    capture.style.top = '0';
+
+    const rowsHtml = sorted.map(e => `
+      <div class="entry ${e.origen}">
+        <div class="entry-top">
+          <span class="unidad-tag">${escapeHtml(e.unidad)}</span>
+          <span class="origen-tag">${e.origen === 'viaje' ? 'Viaje' : 'Procesado'}</span>
+        </div>
+        <div class="entry-grid">
+          <div><span class="lbl">Fecha</span><span class="val">${fmtFecha(e.fecha)}</span></div>
+          <div><span class="lbl">Horario</span><span class="val">${e.horaInicio || '--:--'} – ${e.horaFin || '--:--'}</span></div>
+          <div><span class="lbl">Limpias</span><span class="val clean">${e.limpias}</span></div>
+          <div><span class="lbl">Sucias</span><span class="val dirty">${e.sucias}</span></div>
+          <div><span class="lbl">Fin lavado a mano</span><span class="val">${e.horaLavadoManual || '--:--'}</span></div>
+        </div>
+      </div>`).join('');
+
+    const now = new Date();
+    const stamp = now.toLocaleString('es-MX');
+
+    capture.innerHTML = `
+      <div class="cap-title">Bitácora de Rejas</div>
+      <div class="cap-sub">Exportado ${stamp} · ${entries.length} registro${entries.length === 1 ? '' : 's'}</div>
+      ${rowsHtml}
+    `;
+
+    document.body.appendChild(capture);
+
+    btn.disabled = true;
+    btn.textContent = 'Generando imagen...';
+
+    try{
+      const canvas = await html2canvas(capture, {
+        backgroundColor: '#1c1f24',
+        scale: 2,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `bitacora-rejas-${todayStr()}.png`;
+      link.href = dataUrl;
+      link.click();
+    }catch(e){
+      console.error('Error generando imagen', e);
+      els.err.textContent = 'No se pudo generar la imagen.';
+    }finally{
+      document.body.removeChild(capture);
+      btn.disabled = false;
+      btn.textContent = 'Guardar registros como imagen';
+    }
+  });
+
   document.getElementById('btnAdd').addEventListener('click', () => {
     els.err.textContent = '';
 
@@ -442,14 +547,14 @@
     const horaInicio = els.horaInicio.value;
     const horaFin = els.horaFin.value;
     const limpias = els.limpias.value === '' ? null : parseInt(els.limpias.value, 10);
-    const sucias = els.sucias.value === '' ? null : parseInt(els.sucias.value, 10);
+    const sucias = els.sucias.value === '' ? 0 : parseInt(els.sucias.value, 10);
     const horaLavadoManual = els.horaLavadoManual.value;
 
     if(!fecha){ els.err.textContent = 'Indica la fecha.'; return; }
     if(!unidad){ els.err.textContent = 'Indica el número económico de la unidad.'; return; }
     if(!origenSel){ els.err.textContent = 'Selecciona si la unidad viene de viaje o procesado.'; return; }
     if(!horaInicio || !horaFin){ els.err.textContent = 'Indica hora de inicio y de fin.'; return; }
-    if(limpias === null || sucias === null){ els.err.textContent = 'Indica cuántas rejas limpias y sucias.'; return; }
+    if(limpias === null){ els.err.textContent = 'Indica cuántas rejas limpias.'; return; }
 
     const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
