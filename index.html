@@ -104,7 +104,7 @@
     font-size:15px;
     padding:10px 10px;
     border-radius:8px;
-    width:100%;
+    width: 85%;
   }
   input[type=text].unidad{
     text-transform:uppercase;
@@ -524,11 +524,47 @@
         backgroundColor: '#1c1f24',
         scale: 2,
       });
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `bitacora-rejas-${todayStr()}.png`;
-      link.href = dataUrl;
-      link.click();
+
+      const filename = `bitacora-rejas-${todayStr()}.png`;
+
+      // En móvil (sobre todo iOS) el atributo "download" suele ignorarse y
+      // el navegador solo abre la imagen sin descargarla. Usamos el menú
+      // nativo de compartir cuando está disponible, para poder guardarla
+      // directamente en la galería/fotos.
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+      let shared = false;
+      if(blob && navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'image/png' })] })){
+        try{
+          await navigator.share({
+            files: [new File([blob], filename, { type: 'image/png' })],
+            title: 'Bitácora de Rejas',
+          });
+          shared = true;
+        }catch(shareErr){
+          // El usuario canceló el share sheet u ocurrió un error; seguimos con el respaldo.
+          if(shareErr && shareErr.name === 'AbortError'){
+            shared = true; // no mostrar error si solo canceló
+          }
+        }
+      }
+
+      if(!shared){
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = dataUrl;
+        link.click();
+
+        // Respaldo: si el navegador ignoró la descarga (común en móvil),
+        // abrimos la imagen en una pestaña nueva para guardarla manualmente.
+        setTimeout(() => {
+          const win = window.open(dataUrl, '_blank');
+          if(!win){
+            els.err.textContent = 'Si no se descargó, mantén presionada la imagen que se abrió para guardarla.';
+          }
+        }, 300);
+      }
     }catch(e){
       console.error('Error generando imagen', e);
       els.err.textContent = 'No se pudo generar la imagen.';
