@@ -103,7 +103,7 @@
     font-size:15px;
     padding:10px 10px;
     border-radius:8px;
-    width: 80%;
+    width: 85%;
   }
   input[type=text].unidad{
     text-transform:uppercase;
@@ -308,13 +308,8 @@
       </div>
 
       <div class="field full">
-        <label>Duración lavado a mano</label>
-        <div class="dur-row">
-          <input type="number" id="durHoras" min="0" inputmode="numeric" placeholder="Horas">
-          <span class="dur-sep">h</span>
-          <input type="number" id="durMin" min="0" max="59" inputmode="numeric" placeholder="Min">
-          <span class="dur-sep">min</span>
-        </div>
+        <label for="horaLavadoManual">Hora en que terminó el lavado a mano</label>
+        <input type="time" id="horaLavadoManual">
       </div>
     </div>
 
@@ -346,8 +341,7 @@
     horaFin: document.getElementById('horaFin'),
     limpias: document.getElementById('limpias'),
     sucias: document.getElementById('sucias'),
-    durHoras: document.getElementById('durHoras'),
-    durMin: document.getElementById('durMin'),
+    horaLavadoManual: document.getElementById('horaLavadoManual'),
     err: document.getElementById('errMsg'),
     log: document.getElementById('log'),
     countPill: document.getElementById('countPill'),
@@ -406,9 +400,7 @@
     const sorted = [...entries].sort((a,b) => (b.fecha + b.horaInicio).localeCompare(a.fecha + a.horaInicio));
 
     els.log.innerHTML = sorted.map(e => {
-      const dur = (e.durHoras || 0) > 0 || (e.durMin || 0) > 0
-        ? `${e.durHoras || 0}h ${e.durMin || 0}min`
-        : '—';
+      const horaManual = e.horaLavadoManual || '--:--';
       return `
       <div class="entry ${e.origen}">
         <div class="entry-top">
@@ -421,7 +413,7 @@
           <div><span class="lbl">Horario</span><span class="val">${e.horaInicio || '--:--'} – ${e.horaFin || '--:--'}</span></div>
           <div><span class="lbl">Limpias</span><span class="val clean">${e.limpias}</span></div>
           <div><span class="lbl">Sucias</span><span class="val dirty">${e.sucias}</span></div>
-          <div><span class="lbl">Lavado a mano</span><span class="val">${dur}</span></div>
+          <div><span class="lbl">Fin lavado a mano</span><span class="val">${horaManual}</span></div>
         </div>
       </div>`;
     }).join('');
@@ -451,8 +443,7 @@
     const horaFin = els.horaFin.value;
     const limpias = els.limpias.value === '' ? null : parseInt(els.limpias.value, 10);
     const sucias = els.sucias.value === '' ? null : parseInt(els.sucias.value, 10);
-    const durHoras = els.durHoras.value === '' ? 0 : parseInt(els.durHoras.value, 10);
-    const durMin = els.durMin.value === '' ? 0 : parseInt(els.durMin.value, 10);
+    const horaLavadoManual = els.horaLavadoManual.value;
 
     if(!fecha){ els.err.textContent = 'Indica la fecha.'; return; }
     if(!unidad){ els.err.textContent = 'Indica el número económico de la unidad.'; return; }
@@ -465,7 +456,7 @@
       fecha, unidad, origen: origenSel,
       horaInicio, horaFin,
       limpias, sucias,
-      durHoras, durMin,
+      horaLavadoManual,
     };
 
     const entries = loadEntries();
@@ -478,8 +469,7 @@
     els.horaFin.value = '';
     els.limpias.value = '';
     els.sucias.value = '';
-    els.durHoras.value = '';
-    els.durMin.value = '';
+    els.horaLavadoManual.value = '';
     selectOrigen(null);
     origenSel = null;
     els.unidad.focus();
